@@ -6,7 +6,9 @@ from pydantic import Field, validator
 class Settings(BaseSettings):
     GITHUB_TOKEN: str = Field(..., description="GitHub personal access token")
     GITHUB_REPO: str = Field(..., description="Repository in format username/repo")
-    OPENAI_API_KEY: str = Field(..., description="OpenAI API key")
+    OPENROUTER_API_KEY: str = Field(..., description="OpenRouter API key")
+    OPENROUTER_BASE_URL: str = Field(default="https://openrouter.ai/api/v1", description="OpenRouter API base URL")
+    OPENROUTER_MODEL: str = Field(default="anthropic/claude-3-opus-20240229", description="OpenRouter model to use")
     BREVO_API_KEY: str = Field(..., description="Brevo API key")
     DATABASE_URL: str = Field(..., description="MySQL connection string")
     DEBUG: bool = Field(default=False, description="Debug mode flag")
