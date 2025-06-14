@@ -93,10 +93,10 @@ pip install -r requirements.txt
 docker-compose up -d db
 
 # Run the FastAPI backend
-uvicorn src.api.main:app --reload --port 8000
+uvicorn src.main:app --reload --port 8000
 
 # Run the Streamlit frontend
-streamlit run src/ui/streamlit_app.py
+streamlit run src\ui\streamlit_app.py
 ```
 
 ## Project Structure

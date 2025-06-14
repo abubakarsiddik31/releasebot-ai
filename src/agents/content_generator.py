@@ -6,6 +6,7 @@ from src.utils.helpers import retry_with_backoff
 logger = setup_logger(__name__, "content_generator.log")
 
 class ContentGenerator:
+    """Content generator agent"""
     def __init__(self):
         self.ai_client = OpenRouterClient()
 

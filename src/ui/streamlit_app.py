@@ -1,6 +1,5 @@
 import streamlit as st
 import requests
-from datetime import datetime
 import pandas as pd
 from src.config.settings import settings
 

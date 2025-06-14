@@ -1,13 +1,14 @@
 from typing import Dict, Any, TypedDict, List
 from langgraph.graph import StateGraph, END
+
 from src.agents.release_detector import ReleaseDetector
 from src.agents.change_analyzer import ChangeAnalyzer
 from src.agents.content_generator import ContentGenerator
 from src.agents.quality_checker import QualityChecker
 from src.agents.email_distributor import EmailDistributor
-from src.utils.logger import get_logger
+from src.utils.logger import setup_logger
 
-logger = get_logger(__name__)
+logger = setup_logger(__name__)
 
 class AgentState(TypedDict):
     release_tag: str
@@ -55,11 +56,11 @@ def get_workflow() -> StateGraph:
             return "failed"
         return "processing"
 
-    graph.add_node("detect_release", release_detector.detect_release)
-    graph.add_node("analyze_changes", change_analyzer.analyze_changes)
-    graph.add_node("generate_content", content_generator.generate_content)
-    graph.add_node("check_quality", quality_checker.check_quality)
-    graph.add_node("distribute_emails", email_distributor.distribute_emails)
+    graph.add_node("detect_release", release_detector)
+    graph.add_node("analyze_changes", change_analyzer)
+    graph.add_node("generate_content", content_generator)
+    graph.add_node("check_quality", quality_checker)
+    graph.add_node("distribute_emails", email_distributor)
     graph.add_node("handle_errors", handle_errors)
 
     graph.add_edge("detect_release", "analyze_changes")

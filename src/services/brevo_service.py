@@ -1,10 +1,10 @@
 from typing import List, Dict, Any, Optional
 import sib_api_v3_sdk
 from sib_api_v3_sdk.rest import ApiException
-from src.utils.logger import get_logger
+from src.utils.logger import setup_logger
 from src.config.settings import settings
 
-logger = get_logger(__name__)
+logger = setup_logger(__name__)
 
 class BrevoService:
     def __init__(self):
@@ -92,7 +92,8 @@ class BrevoService:
                 subject=subject,
                 html_content=html_content,
                 sender={'name': settings.EMAIL_SENDER_NAME, 'email': settings.EMAIL_SENDER_EMAIL},
-                type='classic'
+                recipients={'listIds': []},  # Required by API, can be empty if sending to all
+                inline_image_activation=True  # Embed images in the email
             )
 
             response = campaign_api.create_email_campaign(campaign)

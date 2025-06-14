@@ -1,26 +1,41 @@
 from typing import Dict, Any, List
-from src.utils.logger import get_logger
-from src.services.brevo_service import BrevoService
-from src.models.database import get_db_session
-from src.models.models import Users, ReleasesProcessed, EmailContent
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-logger = get_logger(__name__)
+from src.utils.logger import setup_logger
+from src.services.brevo_service import BrevoService
+from src.models.database import get_db_session
+from src.models.database import Users, ReleasesProcessed, EmailContent
+
+logger = setup_logger(__name__)
 
 class EmailDistributor:
+    """Email distributor agent"""
     def __init__(self):
         self.brevo_service = BrevoService()
         self.max_retries = 3
 
     async def distribute_emails(self, state: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Distribute emails for a release
+        
+        Args:
+            state: Current state containing release information
+            
+        Returns:
+            Updated state with distribution results
+        """
         try:
             logger.info(f"Starting email distribution for release {state.get('release_tag')}")
             
             if not state.get('approved', False):
                 raise ValueError("Content not approved for distribution")
 
-            async with get_db_session() as session:
+            # Get a database session
+            session_gen = get_db_session()
+            session = await anext(session_gen)
+            
+            try:
                 users = await self._get_active_users(session)
                 campaign = await self._create_campaign(state, session)
                 
@@ -44,6 +59,10 @@ class EmailDistributor:
                     state['errors'].extend([f"Failed to send to {f['email']}: {f['error']}" for f in results['failed']])
 
                 return state
+                
+            finally:
+                await session.close()
+                await session_gen.aclose()
 
         except Exception as e:
             logger.error(f"Error in email distribution: {str(e)}")
@@ -52,6 +71,15 @@ class EmailDistributor:
             return state
 
     async def _get_active_users(self, session: AsyncSession) -> List[Users]:
+        """
+        Get all active users from the database
+        
+        Args:
+            session: Database session
+            
+        Returns:
+            List of active users
+        """
         try:
             query = select(Users).where(Users.status == 'active')
             result = await session.execute(query)
@@ -65,6 +93,16 @@ class EmailDistributor:
         state: Dict[str, Any],
         session: AsyncSession
     ) -> EmailContent:
+        """
+        Create a new email campaign in the database
+        
+        Args:
+            state: Current state with campaign details
+            session: Database session
+            
+        Returns:
+            Created EmailContent instance
+        """
         try:
             campaign = EmailContent(
                 release_tag=state['release_tag'],
@@ -86,6 +124,14 @@ class EmailDistributor:
         campaign_id: str,
         results: Dict[str, Any]
     ) -> None:
+        """
+        Update the status of a campaign in the database
+        
+        Args:
+            session: Database session
+            campaign_id: ID of the campaign to update
+            results: Dictionary containing success/failure results
+        """
         try:
             release = await session.get(ReleasesProcessed, campaign_id)
             if release:
@@ -97,6 +143,13 @@ class EmailDistributor:
             raise
 
     async def _handle_bounce(self, email: str, session: AsyncSession) -> None:
+        """
+        Handle email bounce by updating user status
+        
+        Args:
+            email: Email address that bounced
+            session: Database session
+        """
         try:
             user = await session.get(Users, email)
             if user:
@@ -107,6 +160,13 @@ class EmailDistributor:
             raise
 
     async def _handle_unsubscribe(self, email: str, session: AsyncSession) -> None:
+        """
+        Handle user unsubscribe by updating user status
+        
+        Args:
+            email: Email address to unsubscribe
+            session: Database session
+        """
         try:
             user = await session.get(Users, email)
             if user:

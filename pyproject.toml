@@ -1,7 +1,7 @@
 [project]
 name = "releasebot-ai"
 version = "0.1.0"
-description = "Add your description here"
+description = "ReleaseBot AI - AI-powered release management"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = []

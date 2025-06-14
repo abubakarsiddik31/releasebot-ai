@@ -1,5 +1,4 @@
 from typing import Dict, Any, List
-import re
 import json
 
 from src.utils.ai_client import OpenRouterClient
@@ -9,6 +8,7 @@ from src.utils.helpers import retry_with_backoff
 logger = setup_logger(__name__, "change_analyzer.log")
 
 class ChangeAnalyzer:
+    """Change analyzer agent"""
     def __init__(self):
         self.ai_client = OpenRouterClient()
         self.categories = {

@@ -1,13 +1,12 @@
 from typing import Dict, Any, List
-from src.utils.logger import get_logger
-from src.utils.ai_client import get_ai_client
-from src.config.settings import settings
+from src.utils.logger import setup_logger
+from src.utils.ai_client import OpenRouterClient
 
-logger = get_logger(__name__)
+logger = setup_logger(__name__)
 
 class QualityChecker:
     def __init__(self):
-        self.ai_client = get_ai_client()
+        self.ai_client = OpenRouterClient()
         self.quality_threshold = 7.0
         self.spam_trigger_words = [
             "free", "guarantee", "winner", "winner", "won", "win", "won", "winning",
@@ -71,7 +70,7 @@ Evaluate the content based on:
 Provide a score from 1-10 and specific feedback for improvement.
 Format: SCORE: [number]\\nFEEDBACK: [detailed feedback]"""
 
-        response = await self.ai_client.get_completion(prompt)
+        response = await self.ai_client.generate_completion(prompt)
         
         try:
             score_line = response.split('\n')[0]

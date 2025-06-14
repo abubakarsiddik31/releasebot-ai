@@ -1,5 +1,4 @@
-from typing import Dict, Any, Optional
-from datetime import datetime
+from typing import Dict, Any
 
 from src.services.github_service import GitHubService
 from src.services.database_service import get_db

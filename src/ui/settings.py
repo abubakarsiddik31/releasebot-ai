@@ -1,6 +1,5 @@
 import streamlit as st
 import requests
-import json
 from src.config.settings import settings
 
 def get_api_url(endpoint: str) -> str:

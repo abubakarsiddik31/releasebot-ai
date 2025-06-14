@@ -1,20 +1,20 @@
+from datetime import datetime
+from typing import List, Optional, AsyncGenerator
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List, Optional
-from datetime import datetime
 
-from src.config.settings import settings
-from src.models.database import get_db_session
-from src.models.models import Users, ReleasesProcessed, EmailContent
+from src.models.database import ReleasesProcessed, Users, EmailContent
 from src.models.schemas import (
     UserCreate, UserResponse, ReleaseResponse, CampaignResponse,
     ReleaseTrigger, HealthCheck
 )
 from src.agents.graph import get_workflow
-from src.utils.logger import get_logger
+from src.config.settings import settings
+from src.utils.logger import setup_logger
+from src.models.database import get_db_session
 
-logger = get_logger(__name__)
+logger = setup_logger(__name__)
 app = FastAPI(title="ReleaseBot AI API")
 
 app.add_middleware(
@@ -25,9 +25,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-async def get_db():
-    async with get_db_session() as session:
-        yield session
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
+    """
+    Dependency function that yields db sessions.
+    This is a wrapper around get_db_session for FastAPI's dependency injection.
+    """
+    async for session in get_db_session():
+        try:
+            yield session
+        except Exception:
+            await session.rollback()
+            raise
+        
 
 @app.post("/trigger-release", response_model=ReleaseResponse)
 async def trigger_release(

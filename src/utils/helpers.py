@@ -1,15 +1,17 @@
 import asyncio
 from datetime import datetime, timezone
 from functools import wraps
-from typing import Any, Callable, TypeVar, Optional
+from typing import Any, Callable, TypeVar
 import re
 
 T = TypeVar("T")
 
 def utc_now() -> datetime:
+    """Get current UTC time."""
     return datetime.now(timezone.utc)
 
 def format_datetime(dt: datetime) -> str:
+    """Format datetime to string."""
     return dt.strftime("%Y-%m-%d %H:%M:%S UTC")
 
 def retry_with_backoff(

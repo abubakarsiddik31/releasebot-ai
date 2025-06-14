@@ -1,4 +1,4 @@
-from typing import Dict, Any, List, Optional
+from typing import Dict, List, Optional
 import httpx
 from src.config.settings import settings
 from src.utils.logger import setup_logger
@@ -14,7 +14,7 @@ class OpenRouterClient:
             base_url=self.base_url,
             headers={
                 "Authorization": f"Bearer {self.api_key}",
-                "HTTP-Referer": "https://github.com/yourusername/releasebot-ai",
+                "HTTP-Referer": "https://github.com/bakar31/releasebot-ai",
                 "X-Title": "ReleaseBot AI"
             }
         )

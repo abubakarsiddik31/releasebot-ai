@@ -1,14 +1,14 @@
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 import psutil
-import requests
-from src.utils.logger import get_logger
+from src.utils.logger import setup_logger
 from src.config.settings import settings
 
-logger = get_logger(__name__)
+logger = setup_logger(__name__)
 
 class SystemMonitor:
+    """System monitor class to track system metrics and errors."""
     def __init__(self):
         self.start_time = time.time()
         self.error_counts = {
@@ -18,9 +18,10 @@ class SystemMonitor:
             'github': 0,
             'other': 0
         }
-        self.last_check = datetime.utcnow()
+        self.last_check = datetime.now(timezone.utc)
 
     def get_system_metrics(self) -> Dict[str, Any]:
+        """Get system metrics."""
         try:
             process = psutil.Process()
             memory_info = process.memory_info()
@@ -30,13 +31,14 @@ class SystemMonitor:
                 'memory_used': memory_info.rss / 1024 / 1024,  # MB
                 'uptime': time.time() - self.start_time,
                 'error_counts': self.error_counts,
-                'timestamp': datetime.utcnow().isoformat()
+                'timestamp': datetime.now(timezone.utc).isoformat()
             }
         except Exception as e:
             logger.error(f"Error getting system metrics: {str(e)}")
             return {}
 
     def record_error(self, error_type: str, error_message: str) -> None:
+        """Record an error."""
         try:
             if error_type in self.error_counts:
                 self.error_counts[error_type] += 1
@@ -48,10 +50,11 @@ class SystemMonitor:
             logger.error(f"Error recording error: {str(e)}")
 
     def check_system_health(self) -> Dict[str, Any]:
+        """Check system health."""
         try:
             health_status = {
                 'status': 'healthy',
-                'timestamp': datetime.utcnow().isoformat(),
+                'timestamp': datetime.now(timezone.utc).isoformat(),
                 'version': settings.APP_VERSION,
                 'metrics': self.get_system_metrics()
             }
@@ -67,11 +70,12 @@ class SystemMonitor:
             logger.error(f"Error checking system health: {str(e)}")
             return {
                 'status': 'error',
-                'timestamp': datetime.utcnow().isoformat(),
+                'timestamp': datetime.now(timezone.utc).isoformat(),
                 'error': str(e)
             }
 
 class ErrorHandler:
+    """Error handler class to manage error recording and notification."""
     def __init__(self):
         self.monitor = SystemMonitor()
 
@@ -85,7 +89,7 @@ class ErrorHandler:
             error_info = {
                 'type': error_type,
                 'message': str(error),
-                'timestamp': datetime.utcnow().isoformat(),
+                'timestamp': datetime.now(timezone.utc).isoformat(),
                 'context': context or {}
             }
             
@@ -111,6 +115,7 @@ class ErrorHandler:
             }
 
     def _handle_api_error(self, error_info: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle API error."""
         return {
             'status': 'error',
             'type': 'api',
@@ -119,6 +124,7 @@ class ErrorHandler:
         }
 
     def _handle_database_error(self, error_info: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle database error."""
         return {
             'status': 'error',
             'type': 'database',
@@ -127,6 +133,7 @@ class ErrorHandler:
         }
 
     def _handle_email_error(self, error_info: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle email error."""
         return {
             'status': 'error',
             'type': 'email',
@@ -135,6 +142,7 @@ class ErrorHandler:
         }
 
     def _handle_github_error(self, error_info: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle GitHub error."""
         return {
             'status': 'error',
             'type': 'github',

@@ -1,9 +1,8 @@
 from typing import Optional, Dict, List
 from github import Github, GithubException
 from github.Repository import Repository
-from github.PaginatedList import PaginatedList
 from github.Commit import Commit
-from github.Release import Release
+from github.GitRelease import GitRelease as Release
 
 from src.config.settings import settings
 from src.utils.logger import setup_logger, log_execution_time

@@ -9,7 +9,7 @@ services:
     depends_on:
       - db
     environment:
-      - DATABASE_URL=mysql://releasebot:password@db:3306/releasebot
+      - DATABASE_URL=mysql://releasebot:abubakar1808031@db:3306/releasebot
     env_file:
       - .env
     volumes:
@@ -22,7 +22,7 @@ services:
       - MYSQL_ROOT_PASSWORD=rootpassword
       - MYSQL_DATABASE=releasebot
       - MYSQL_USER=releasebot
-      - MYSQL_PASSWORD=password
+      - MYSQL_PASSWORD=abubakar1808031
     ports:
       - "3306:3306"
     volumes:
