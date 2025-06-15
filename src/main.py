@@ -3,11 +3,12 @@ from typing import List, Optional, AsyncGenerator
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from src.models.database import ReleasesProcessed, Users, EmailContent
 from src.models.schemas import (
     UserCreate, UserResponse, ReleaseResponse, CampaignResponse,
-    ReleaseTrigger, HealthCheck
+    ReleaseTrigger
 )
 from src.agents.graph import get_workflow
 from src.config.settings import settings
@@ -71,9 +72,13 @@ async def get_releases(
     db: AsyncSession = Depends(get_db)
 ):
     try:
-        releases = await db.query(ReleasesProcessed).order_by(
-            ReleasesProcessed.created_at.desc()
-        ).offset(offset).limit(limit).all()
+        result = await db.execute(
+            select(ReleasesProcessed)
+            .order_by(ReleasesProcessed.created_at.desc())
+            .offset(offset)
+            .limit(limit)
+        )
+        releases = result.scalars().all()
         
         return [
             {
@@ -95,9 +100,11 @@ async def get_release_status(
     db: AsyncSession = Depends(get_db)
 ):
     try:
-        release = await db.query(ReleasesProcessed).filter(
-            ReleasesProcessed.release_tag == tag
-        ).first()
+        result = await db.execute(
+            select(ReleasesProcessed)
+            .where(ReleasesProcessed.release_tag == tag)
+        )
+        release = result.scalar_one_or_none()
         
         if not release:
             raise HTTPException(status_code=404, detail="Release not found")
@@ -123,11 +130,14 @@ async def get_users(
     db: AsyncSession = Depends(get_db)
 ):
     try:
-        query = db.query(Users)
+        stmt = select(Users)
         if status:
-            query = query.filter(Users.status == status)
+            stmt = stmt.where(Users.status == status)
             
-        users = await query.offset(offset).limit(limit).all()
+        result = await db.execute(
+            stmt.offset(offset).limit(limit)
+        )
+        users = result.scalars().all()
         
         return [
             {
@@ -174,9 +184,13 @@ async def get_campaigns(
     db: AsyncSession = Depends(get_db)
 ):
     try:
-        campaigns = await db.query(EmailContent).order_by(
-            EmailContent.generated_at.desc()
-        ).offset(offset).limit(limit).all()
+        result = await db.execute(
+            select(EmailContent)
+            .order_by(EmailContent.generated_at.desc())
+            .offset(offset)
+            .limit(limit)
+        )
+        campaigns = result.scalars().all()
         
         return [
             {
@@ -191,14 +205,45 @@ async def get_campaigns(
         logger.error(f"Error fetching campaigns: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/health", response_model=HealthCheck)
-async def health_check():
+async def check_database_health(db: AsyncSession) -> bool:
+    """Check if database is accessible by making a simple query."""
     try:
-        return {
-            'status': 'healthy',
-            'timestamp': datetime.utcnow(),
-            'version': settings.APP_VERSION
-        }
+        await db.execute(select(1))
+        return True
     except Exception as e:
-        logger.error(f"Error in health check: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e)) 
+        logger.error(f"Database health check failed: {str(e)}")
+        return False
+
+@app.get("/health")
+async def health_check(db: AsyncSession = Depends(get_db)):
+    try:
+        db_status = await check_database_health(db)
+        status = 'healthy' if db_status else 'unhealthy'
+        status_code = 200 if db_status else 503
+        
+        # Convert datetime to ISO format string for JSON serialization
+        response = {
+            'status': status,
+            'timestamp': datetime.utcnow().isoformat(),
+            'version': settings.APP_VERSION,
+            'database': 'connected' if db_status else 'disconnected'
+        }
+        
+        if not db_status:
+            response['error'] = 'Database connection failed'
+            
+        from fastapi.responses import JSONResponse
+        return JSONResponse(
+            content=response,
+            status_code=status_code
+        )
+    except Exception as e:
+        logger.error(f"Health check failed: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={
+                'status': 'error',
+                'error': str(e),
+                'timestamp': datetime.utcnow().isoformat()
+            }
+        )

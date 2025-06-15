@@ -17,7 +17,7 @@ ReleaseBot AI is an intelligent release management system that automates the pro
 
 - Python 3.12 or higher
 - Docker and Docker Compose
-- MySQL 8.0
+- PostgreSQL 15 or higher
 - GitHub account with repository access
 - Brevo account for email services
 - OpenRouter API key for AI services
@@ -27,7 +27,7 @@ ReleaseBot AI is an intelligent release management system that automates the pro
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/yourusername/releasebot-ai.git
+git clone https://github.com/bakar31/releasebot-ai.git
 cd releasebot-ai
 ```
 
@@ -54,15 +54,17 @@ BREVO_SENDER_NAME=Your Name
 OPENROUTER_API_KEY=your_openrouter_api_key
 
 # Database Configuration
-MYSQL_ROOT_PASSWORD=your_root_password
-MYSQL_DATABASE=releasebot
-MYSQL_USER=releasebot
-MYSQL_PASSWORD=your_password
+DATABASE_URL=postgresql+asyncpg://releasebot:your_password@db:5432/releasebot
+POSTGRES_USER=releasebot
+POSTGRES_PASSWORD=your_password
+POSTGRES_DB=releasebot
 ```
 
 4. Start the application using Docker Compose:
 
 ```bash
+docker-compose up -d db
+# Wait for the database to be ready (about 10-15 seconds)
 docker-compose up -d
 ```
 
@@ -165,25 +167,6 @@ docker-compose -f docker-compose.prod.yml up -d
 3. Set up proper backup procedures for the database
 4. Configure monitoring and alerting
 
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Support
-
-For support, please:
-
-1. Check the documentation
-2. Open an issue on GitHub
-3. Contact the maintainers
 
 ## Acknowledgments
 

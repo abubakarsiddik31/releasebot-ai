@@ -5,8 +5,9 @@ PyGithub
 sib-api-v3-sdk
 SQLAlchemy
 sqlalchemy[asyncio]
-mysql-connector-python
-mysqlclient
+psycopg2-binary
+asyncpg
+sqlalchemy[postgresql]
 streamlit
 pydantic
 pydantic[email]

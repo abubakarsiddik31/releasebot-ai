@@ -13,18 +13,19 @@ class Settings(BaseSettings):
     OPENROUTER_API_KEY: str = Field(default="", description="OpenRouter API key")
     OPENROUTER_BASE_URL: str = Field(default="https://openrouter.ai/api/v1", description="OpenRouter API base URL")
     OPENROUTER_MODEL: str = Field(default="anthropic/claude-3-opus-20240229", description="OpenRouter model to use")
+    
     BREVO_API_KEY: str = Field(default="", description="Brevo API key")
     BREVO_SENDER_EMAIL: str = Field(default="", description="Brevo sender email address")
     BREVO_SENDER_NAME: str = Field(default="", description="Brevo sender name")
     
     # Database configuration
-    DATABASE_URL: str = Field(default="", description="MySQL connection string")
-    MYSQL_ROOT_PASSWORD: str = Field(default="rootpassword", description="MySQL root password")
-    MYSQL_DATABASE: str = Field(default="releasebot", description="MySQL database name")
-    MYSQL_USER: str = Field(default="releasebot", description="MySQL username")
-    MYSQL_PASSWORD: str = Field(default="", description="MySQL password")
+    DATABASE_URL: str = Field(default="postgresql+asyncpg://postgres:postgres@localhost:5435/releasebot", description="PostgreSQL connection string")
+    POSTGRES_USER: str = Field(default="", description="PostgreSQL username")
+    POSTGRES_PASSWORD: str = Field(default="", description="PostgreSQL password")
+    POSTGRES_DB: str = Field(default="", description="PostgreSQL database name") 
     
     # Application settings
+    APP_VERSION: str = Field(default="0.1.0", description="Application version")
     DEBUG: bool = Field(default=False, description="Debug mode flag")
     LOG_LEVEL: str = Field(default="INFO", description="Logging level")
     ENVIRONMENT: str = Field(default="development", description="Environment (development/production)")
@@ -32,6 +33,7 @@ class Settings(BaseSettings):
         default=["*"],
         description="List of allowed CORS origins. Defaults to ['*'] for development.",
     )
+    API_BASE_URL: str = Field(default="http://localhost:8000", description="Base URL for API")
 
     @classmethod
     @validator("GITHUB_REPO")

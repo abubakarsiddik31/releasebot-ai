@@ -1,29 +1,32 @@
-from contextlib import contextmanager
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy.pool import QueuePool
+from typing import AsyncGenerator
+from contextlib import asynccontextmanager
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from src.config.settings import settings
 
-engine = create_engine(
-    settings.DATABASE_URL,
-    poolclass=QueuePool,
-    pool_size=5,
-    max_overflow=10,
-    pool_timeout=30,
-    pool_recycle=1800
+from src.models.database import engine, Base
+
+# Create async session factory
+async_session_factory = async_sessionmaker(
+    engine, expire_on_commit=False, class_=AsyncSession
 )
 
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+@asynccontextmanager
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
+    """
+    Async context manager that provides a database session.
+    Automatically handles session commit/rollback and closing.
+    """
+    async with async_session_factory() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
 
-@contextmanager
-def get_db() -> Session:
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-def init_db():
-    from src.models.database import Base
-    Base.metadata.create_all(bind=engine) 
+async def init_db():
+    """Initialize database tables"""
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)

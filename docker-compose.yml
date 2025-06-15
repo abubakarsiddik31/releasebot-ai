@@ -1,34 +1,24 @@
 version: "3.8"
 
 services:
-  app:
-    build: .
-    ports:
-      - "8000:8000"
-      - "8501:8501"
-    depends_on:
-      - db
-    environment:
-      - DATABASE_URL=mysql://releasebot:abubakar1808031@db:3306/releasebot
-    env_file:
-      - .env
-    volumes:
-      - ./logs:/app/logs
-    restart: unless-stopped
-
   db:
-    image: mysql:8.0
+    image: postgres:15-alpine
+    container_name: releasebot-db
     environment:
-      - MYSQL_ROOT_PASSWORD=rootpassword
-      - MYSQL_DATABASE=releasebot
-      - MYSQL_USER=releasebot
-      - MYSQL_PASSWORD=abubakar1808031
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: releasebot
     ports:
-      - "3306:3306"
+      - "5435:5432"
     volumes:
-      - mysql_data:/var/lib/mysql
+      - postgres_data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d releasebot"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
 
 volumes:
-  mysql_data:
+  postgres_data:

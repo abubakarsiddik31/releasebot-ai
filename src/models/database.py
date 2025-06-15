@@ -1,30 +1,31 @@
 from datetime import datetime, timezone
 from typing import AsyncGenerator
+import os
 
 from sqlalchemy import Column, Integer, String, DateTime, Enum, ForeignKey, Text
+from sqlalchemy.dialects.postgresql import ENUM as PgEnum
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 
 from src.config.settings import settings
 
-# Create async engine with aiomysql
-# Get the actual database URL string value
-db_url_str = str(settings.DATABASE_URL)
+# Create async engine with asyncpg
+db_url = str(settings.DATABASE_URL)
 
-# Convert mysql:// to mysql+aiomysql:// in the connection URL
-if db_url_str.startswith('mysql://'):
-    db_url = db_url_str.replace('mysql://', 'mysql+aiomysql://', 1)
-elif 'aiomysql' not in db_url_str:
-    db_url = f'mysql+aiomysql{db_url_str[5:]}' if db_url_str.startswith('mysql+') else f'mysql+aiomysql://{db_url_str}'
-else:
-    db_url = db_url_str
+# Ensure the URL uses asyncpg for PostgreSQL
+if db_url.startswith('postgresql://'):
+    db_url = db_url.replace('postgresql://', 'postgresql+asyncpg://', 1)
+elif not db_url.startswith('postgresql+asyncpg://'):
+    db_url = f'postgresql+asyncpg://{db_url}'
 
 engine = create_async_engine(
     db_url,
     echo=settings.DEBUG,
     pool_recycle=3600,
-    pool_pre_ping=True
+    pool_pre_ping=True,
+    pool_size=20,
+    max_overflow=10
 )
 
 # Create async session factory
@@ -34,17 +35,30 @@ async_session_factory = async_sessionmaker(
 
 Base = declarative_base()
 
+# Define enums for PostgreSQL
+release_status_enum = PgEnum(
+    'release_status',
+    name='release_status',
+    create_type=True
+)
+
+user_status_enum = PgEnum(
+    'user_status',
+    name='user_status',
+    create_type=True
+)
+
 class ReleasesProcessed(Base):
     """Processed releases table"""
     __tablename__ = "releases_processed"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     release_tag = Column(String(50), unique=True, nullable=False)
-    processed_at = Column(DateTime, default=datetime.now(timezone.utc))
-    status = Column(Enum("processing", "completed", "failed", name="release_status"), default="processing")
+    processed_at = Column(DateTime(timezone=True), default=datetime.now(timezone.utc))
+    status = Column(release_status_enum, default="processing")
     brevo_campaign_id = Column(String(100))
     email_count = Column(Integer, default=0)
-    created_at = Column(DateTime, default=datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=datetime.now(timezone.utc))
 
     email_content = relationship("EmailContent", back_populates="release")
 
@@ -55,18 +69,18 @@ class Users(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     email = Column(String(255), unique=True, nullable=False)
     name = Column(String(255))
-    status = Column(Enum("active", "inactive", name="user_status"), default="active")
-    created_at = Column(DateTime, default=datetime.now(timezone.utc))
+    status = Column(user_status_enum, default="active")
+    created_at = Column(DateTime(timezone=True), default=datetime.now(timezone.utc))
 
 class EmailContent(Base):
     """Email content table"""
     __tablename__ = "email_content"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    release_tag = Column(String(50), ForeignKey("releases_processed.release_tag"), nullable=False)
+    release_tag = Column(String(50), ForeignKey("releases_processed.release_tag", ondelete="CASCADE"), nullable=False)
     subject = Column(String(255), nullable=False)
     content = Column(Text, nullable=False)
-    generated_at = Column(DateTime, default=datetime.now(timezone.utc))
+    generated_at = Column(DateTime(timezone=True), default=datetime.now(timezone.utc))
 
     release = relationship("ReleasesProcessed", back_populates="email_content")
 
