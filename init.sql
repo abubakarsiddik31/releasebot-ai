@@ -10,7 +10,7 @@ $$;
 -- Create the types we need
 DO $$ BEGIN
     CREATE TYPE release_status AS ENUM ('processing', 'completed', 'failed');
-    CREATE TYPE user_status AS ENUM ('active', 'inactive');
+    CREATE TYPE user_status AS ENUM ('active', 'inactive', 'bounced', 'unsubscribed');
 EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;

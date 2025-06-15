@@ -1,6 +1,5 @@
 import streamlit as st
 import asyncio
-from datetime import datetime
 
 from src.services.github_service import GitHubService
 from src.utils.logger import setup_logger

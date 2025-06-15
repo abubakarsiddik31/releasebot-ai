@@ -28,6 +28,11 @@ class GitHubService:
         if "/" not in settings.GITHUB_REPO:
             raise ValueError("Invalid GITHUB_REPO format. Must be in format 'username/repository'.")
 
+    async def close(self) -> None:
+        """Close the GitHub client connection."""
+        if hasattr(self, 'github') and self.github:
+            self.github.close()
+
     def _initialize_repo(self) -> None:
         """Initialize GitHub repository connection with detailed error handling."""
         try:

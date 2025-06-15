@@ -39,12 +39,14 @@ Base = declarative_base()
 release_status_enum = PgEnum(
     'release_status',
     name='release_status',
+    values=('processing', 'completed', 'failed'),
     create_type=True
 )
 
 user_status_enum = PgEnum(
     'user_status',
     name='user_status',
+    values=('active', 'inactive', 'bounced', 'unsubscribed'),
     create_type=True
 )
 

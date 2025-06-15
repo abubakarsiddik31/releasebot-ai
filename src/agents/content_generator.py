@@ -1,21 +1,26 @@
-from typing import Dict, Any
+from typing import Dict, Any, ClassVar, List, Optional
+from langchain.tools import BaseTool
+from pydantic import Field
 from src.utils.ai_client import OpenRouterClient
 from src.utils.logger import setup_logger, log_execution_time
 from src.utils.helpers import retry_with_backoff
 
 logger = setup_logger(__name__, "content_generator.log")
 
-class ContentGenerator:
-    """Content generator agent"""
+class ContentGenerator(BaseTool):
+    name: ClassVar[str] = "content_generator"
+    description: ClassVar[str] = "Generates email content for releases"
+    ai_client: Optional[OpenRouterClient] = Field(default=None)
+    
     def __init__(self):
+        super().__init__()
         self.ai_client = OpenRouterClient()
 
     @log_execution_time(logger)
-    async def __call__(self, state: Dict[str, Any]) -> Dict[str, Any]:
+    async def _arun(self, state: Dict[str, Any]) -> Dict[str, Any]:
         try:
             if not state["analyzed_changes"] or not state["feature_summary"]:
-                state["errors"].append("No analyzed changes available")
-                return state
+                return {"errors": ["Missing analyzed changes or feature summary"]}
 
             subject = await self._generate_subject(state["feature_summary"])
             content = await self._generate_content(
@@ -23,75 +28,66 @@ class ContentGenerator:
                 state["feature_summary"]
             )
 
-            state["email_subject"] = subject
-            state["email_content"] = self._format_html_content(content)
-            return state
+            return {
+                "email_subject": subject,
+                "email_content": content
+            }
 
         except Exception as e:
             logger.error(f"Error in content generation: {str(e)}")
-            state["errors"].append(str(e))
-            return state
+            return {"errors": [str(e)]}
         finally:
             await self.ai_client.close()
 
     @retry_with_backoff()
     async def _generate_subject(self, summary: str) -> str:
-        prompt = f"""Create an engaging email subject line for this release summary:
+        prompt = f"""Create a concise email subject line for this release:
         {summary}
 
-        Keep it concise and compelling, focusing on the most impactful changes.
+        Keep it under 60 characters and make it engaging.
         """
 
         return await self.ai_client.generate_completion(
             messages=[
-                {"role": "system", "content": "You are an email subject line expert."},
+                {"role": "system", "content": "You are a technical writer."},
                 {"role": "user", "content": prompt}
             ]
         )
 
     @retry_with_backoff()
-    async def _generate_content(self, changes: Dict[str, list], summary: str) -> str:
-        prompt = f"""Create a professional email content for this release:
-        Summary: {summary}
-        Changes: {changes}
+    async def _generate_content(self, changes: Dict[str, List[str]], summary: str) -> str:
+        prompt = f"""Create an engaging email content for this release:
+
+        Summary:
+        {summary}
+
+        Changes:
+        {changes}
 
         Include:
         1. Brief introduction
-        2. Key changes and their benefits
-        3. Call to action
-        Keep it concise and mobile-friendly.
+        2. Key highlights
+        3. Detailed changes
+        4. Call to action
         """
 
-        return await self.ai_client.generate_completion(
+        content = await self.ai_client.generate_completion(
             messages=[
-                {"role": "system", "content": "You are a technical content writer."},
+                {"role": "system", "content": "You are a technical writer."},
                 {"role": "user", "content": prompt}
             ]
         )
 
+        return self._format_html_content(content)
+
     def _format_html_content(self, content: str) -> str:
         return f"""
-        <!DOCTYPE html>
         <html>
-        <head>
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <style>
-                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
-                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-                .header {{ background: #f8f9fa; padding: 20px; border-radius: 5px; }}
-                .content {{ padding: 20px 0; }}
-                .footer {{ font-size: 12px; color: #666; margin-top: 20px; }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="content">
-                    {content}
-                </div>
-                <div class="footer">
-                    <p>This is an automated release notification.</p>
-                </div>
-            </div>
-        </body>
+            <body>
+                {content}
+            </body>
         </html>
-        """ 
+        """
+
+    async def _run(self, state: Dict[str, Any]) -> Dict[str, Any]:
+        return await self._arun(state) 

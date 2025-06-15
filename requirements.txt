@@ -1,5 +1,6 @@
 fastapi
 langgraph
+langchain
 openai
 PyGithub
 sib-api-v3-sdk
@@ -18,3 +19,6 @@ uv
 pydantic-settings
 psutil
 aiomysql
+nest_asyncio
+aiohttp
+python-multipart

@@ -1,98 +1,91 @@
-from typing import Dict, Any, List
-from src.utils.logger import setup_logger
+from typing import Dict, Any, List, ClassVar, Tuple, Optional
+import json
+from langchain.tools import BaseTool
+from pydantic import Field
+
 from src.utils.ai_client import OpenRouterClient
+from src.utils.logger import setup_logger, log_execution_time
+from src.utils.helpers import retry_with_backoff
 
-logger = setup_logger(__name__)
+logger = setup_logger(__name__, "quality_checker.log")
 
-class QualityChecker:
+class QualityChecker(BaseTool):
+    name: ClassVar[str] = "quality_checker"
+    description: ClassVar[str] = "Checks email content quality"
+    ai_client: Optional[OpenRouterClient] = Field(default=None)
+    quality_threshold: float = 0.7
+    spam_trigger_words: List[str] = Field(default_factory=list)
+    
     def __init__(self):
+        super().__init__()
         self.ai_client = OpenRouterClient()
-        self.quality_threshold = 7.0
         self.spam_trigger_words = [
-            "free", "guarantee", "winner", "winner", "won", "win", "won", "winning",
-            "winner", "won", "win", "winning", "winner", "won", "win", "winning",
-            "winner", "won", "win", "winning", "winner", "won", "win", "winning"
+            "free", "guarantee", "winner", "congratulations",
+            "urgent", "act now", "limited time", "exclusive"
         ]
 
-    async def check_quality(self, state: Dict[str, Any]) -> Dict[str, Any]:
+    @log_execution_time(logger)
+    async def _arun(self, state: Dict[str, Any]) -> Dict[str, Any]:
         try:
-            logger.info(f"Starting quality check for release {state.get('release_tag')}")
-            
-            if not state.get('email_content') or not state.get('email_subject'):
-                raise ValueError("Missing email content or subject for quality check")
+            if not state["email_content"] or not state["email_subject"]:
+                return {"errors": ["Missing email content or subject"]}
 
             quality_score, feedback = await self._evaluate_content(
-                state['email_subject'],
-                state['email_content'],
-                state.get('analyzed_changes', {})
+                state["email_content"],
+                state["email_subject"]
             )
 
-            state['quality_score'] = quality_score
-            state['quality_feedback'] = feedback
-            state['approved'] = quality_score >= self.quality_threshold
-
-            if not state['approved']:
-                logger.warning(f"Content rejected with score {quality_score}: {feedback}")
-            else:
-                logger.info(f"Content approved with score {quality_score}")
-
-            return state
+            return {
+                "quality_score": quality_score,
+                "quality_feedback": feedback,
+                "needs_revision": quality_score < self.quality_threshold
+            }
 
         except Exception as e:
             logger.error(f"Error in quality check: {str(e)}")
-            state['errors'].append(f"Quality check failed: {str(e)}")
-            state['approved'] = False
-            return state
+            return {"errors": [str(e)]}
+        finally:
+            await self.ai_client.close()
 
-    async def _evaluate_content(
-        self,
-        subject: str,
-        content: str,
-        analyzed_changes: Dict[str, Any]
-    ) -> tuple[float, str]:
-        prompt = f"""Evaluate the following email content for quality and accuracy:
+    @retry_with_backoff()
+    async def _evaluate_content(self, content: str, subject: str) -> Tuple[float, List[str]]:
+        prompt = f"""Evaluate this email content and subject for quality:
 
-Subject: {subject}
+        Subject: {subject}
+        Content: {content}
 
-Content:
-{content}
+        Consider:
+        1. Clarity and readability
+        2. Technical accuracy
+        3. Professional tone
+        4. Mobile responsiveness
+        5. Spam triggers
 
-Original Changes:
-{analyzed_changes}
+        Return a JSON object with:
+        - score: float between 0 and 1
+        - feedback: list of specific improvements
+        """
 
-Evaluate the content based on:
-1. Technical accuracy compared to original changes
-2. Professional tone and clarity
-3. Spam trigger words and marketing compliance
-4. Completeness of information
-5. User benefit focus
+        response = await self.ai_client.generate_completion(
+            messages=[
+                {"role": "system", "content": "You are a content quality expert."},
+                {"role": "user", "content": prompt}
+            ],
+            response_format={"type": "json_object"}
+        )
 
-Provide a score from 1-10 and specific feedback for improvement.
-Format: SCORE: [number]\\nFEEDBACK: [detailed feedback]"""
-
-        response = await self.ai_client.generate_completion(prompt)
-        
-        try:
-            score_line = response.split('\n')[0]
-            score = float(score_line.split(':')[1].strip())
-            feedback = response.split('FEEDBACK:')[1].strip()
-            
-            if score < 1 or score > 10:
-                score = 5.0
-                feedback = "Invalid score format. Defaulting to neutral score."
-                
-            return score, feedback
-            
-        except Exception as e:
-            logger.error(f"Error parsing AI response: {str(e)}")
-            return 5.0, "Error in quality evaluation. Manual review required."
+        result = json.loads(response)
+        return result["score"], result["feedback"]
 
     def _check_spam_triggers(self, content: str) -> List[str]:
         found_triggers = []
         content_lower = content.lower()
         
-        for word in self.spam_trigger_words:
-            if word in content_lower:
-                found_triggers.append(word)
+        for trigger in self.spam_trigger_words:
+            if trigger in content_lower:
+                found_triggers.append(trigger)
                 
-        return found_triggers 
+        return found_triggers
+
+    async def _run(self, state: Dict[str, Any]) -> Dict[str, Any]:
+        return await self._arun(state) 

@@ -1,5 +1,7 @@
-from typing import Dict, Any, List
+from typing import Dict, Any, List, ClassVar, Optional
 import json
+from langchain.tools import BaseTool
+from pydantic import Field
 
 from src.utils.ai_client import OpenRouterClient
 from src.utils.logger import setup_logger, log_execution_time
@@ -7,35 +9,40 @@ from src.utils.helpers import retry_with_backoff
 
 logger = setup_logger(__name__, "change_analyzer.log")
 
-class ChangeAnalyzer:
-    """Change analyzer agent"""
-    def __init__(self):
-        self.ai_client = OpenRouterClient()
-        self.categories = {
+class ChangeAnalyzer(BaseTool):
+    name: ClassVar[str] = "change_analyzer"
+    description: ClassVar[str] = "Analyzes and categorizes release changes"
+    ai_client: Optional[OpenRouterClient] = Field(default=None)
+    categories: Dict[str, str] = Field(
+        default_factory=lambda: {
             "features": "New Features",
             "fixes": "Bug Fixes",
             "improvements": "Improvements",
             "breaking": "Breaking Changes"
         }
+    )
+    
+    def __init__(self):
+        super().__init__()
+        self.ai_client = OpenRouterClient()
 
     @log_execution_time(logger)
-    async def __call__(self, state: Dict[str, Any]) -> Dict[str, Any]:
+    async def _arun(self, state: Dict[str, Any]) -> Dict[str, Any]:
         try:
             if not state["release_data"]:
-                state["errors"].append("No release data available")
-                return state
+                return {"errors": ["No release data available"]}
 
             changes = await self._analyze_changes(state["changelog"])
             summary = await self._generate_summary(changes)
 
-            state["analyzed_changes"] = changes
-            state["feature_summary"] = summary
-            return state
+            return {
+                "analyzed_changes": changes,
+                "feature_summary": summary
+            }
 
         except Exception as e:
             logger.error(f"Error in change analysis: {str(e)}")
-            state["errors"].append(str(e))
-            return state
+            return {"errors": [str(e)]}
         finally:
             await self.ai_client.close()
 
@@ -76,4 +83,7 @@ class ChangeAnalyzer:
                 {"role": "system", "content": "You are a technical writer."},
                 {"role": "user", "content": prompt}
             ]
-        ) 
+        )
+
+    async def _run(self, state: Dict[str, Any]) -> Dict[str, Any]:
+        return await self._arun(state) 
