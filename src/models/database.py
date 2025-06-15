@@ -71,7 +71,6 @@ class Users(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     email = Column(String(255), unique=True, nullable=False)
     name = Column(String(255))
-    status = Column(user_status_enum, default="active")
     created_at = Column(DateTime(timezone=True), default=datetime.now(timezone.utc))
 
 class EmailContent(Base):

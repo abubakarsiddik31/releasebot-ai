@@ -68,6 +68,8 @@ def initialize_session_state():
         st.session_state.current_step = None
     if 'workflow' not in st.session_state:
         st.session_state.workflow = get_workflow()
+    if 'agent_outputs' not in st.session_state:
+        st.session_state.agent_outputs = {}
 
 def add_log(message: str, level: str = "info"):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -79,17 +81,26 @@ def add_log(message: str, level: str = "info"):
     st.session_state.logs.append(log_entry)
     logger.info(f"[{level.upper()}] {message}")
 
+def update_agent_output(step: str, output: dict):
+    st.session_state.agent_outputs[step] = output
+
+def get_step_progress(current_step: str) -> float:
+    steps = ["detect_release", "analyze_changes", "generate_content", "distribute_emails"]
+    if current_step not in steps:
+        return 0
+    return (steps.index(current_step) + 1) / len(steps) * 100
+
 async def process_release(release_tag: str):
     try:
         st.session_state.processing = True
         st.session_state.current_step = "Initializing"
+        st.session_state.agent_outputs = {}
         add_log(f"Starting release processing for {release_tag}")
         
         initial_state = get_initial_state(release_tag, manual_trigger=True)
         st.session_state.agent_state = initial_state
         
-        # Add recursion limit to config
-        config = {"recursion_limit": 10}  # Increased from default 25
+        config = {"recursion_limit": 10}
         
         async for state in st.session_state.workflow.astream(initial_state, config=config):
             st.session_state.agent_state = state
@@ -101,6 +112,7 @@ async def process_release(release_tag: str):
                     add_log(f"Error in {current_node}: {error}", "error")
             else:
                 add_log(f"Completed {current_node} step")
+                update_agent_output(current_node, state)
                 
             if current_node == "distribute_emails":
                 if state.get('send_status') == 'completed':
@@ -108,7 +120,7 @@ async def process_release(release_tag: str):
                 elif state.get('send_status') == 'failed':
                     add_log("Email distribution failed", "error")
             
-            await asyncio.sleep(0.1)  # Allow UI updates
+            await asyncio.sleep(0.1)
             
     except Exception as e:
         error_msg = f"Processing failed: {str(e)}"
@@ -129,6 +141,31 @@ def trigger_release(release_tag: str):
         loop.run_until_complete(process_release(release_tag))
         return True
     return False
+
+def display_agent_output(step: str, output: dict):
+    st.subheader(f"📊 {step.replace('_', ' ').title()} Output")
+    
+    if step == "detect_release":
+        if "release_data" in output:
+            st.json(output["release_data"])
+    
+    elif step == "analyze_changes":
+        if "analyzed_changes" in output:
+            st.json(output["analyzed_changes"])
+        if "changelog" in output:
+            st.text_area("Changelog", output["changelog"], height=200)
+    
+    elif step == "generate_content":
+        if "email_subject" in output:
+            st.text_input("Email Subject", output["email_subject"])
+        if "email_content" in output:
+            st.text_area("Email Content", output["email_content"], height=300)
+    
+    elif step == "distribute_emails":
+        if "user_list" in output:
+            st.dataframe(pd.DataFrame(output["user_list"]))
+        if "send_status" in output:
+            st.info(f"Send Status: {output['send_status']}")
 
 initialize_session_state()
 
@@ -187,19 +224,21 @@ try:
 
     st.markdown("---")
 
-    if st.session_state.processing:
+    if st.session_state.processing or st.session_state.agent_outputs:
         st.subheader("Processing Status")
+        
         progress_col1, progress_col2 = st.columns([1, 2])
         
         with progress_col1:
-            st.metric("Current Step", st.session_state.current_step)
-            if st.session_state.agent_state:
-                quality_score = st.session_state.agent_state.get('quality_score', 0)
-                if quality_score > 0:
-                    st.metric("Quality Score", f"{quality_score:.1f}/10")
+            st.metric("Current Step", st.session_state.current_step or "Completed")
         
         with progress_col2:
-            st.progress(100 if st.session_state.current_step == "completed" else 50)
+            progress = get_step_progress(st.session_state.current_step)
+            st.progress(progress)
+            
+        st.subheader("Agent Outputs")
+        for step, output in st.session_state.agent_outputs.items():
+            display_agent_output(step, output)
             
         st.subheader("Processing Logs")
         log_container = st.container()

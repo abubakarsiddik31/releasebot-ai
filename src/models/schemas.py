@@ -27,7 +27,6 @@ class UserCreate(UserBase):
     pass
 
 class UserResponse(UserBase):
-    status: str
     created_at: datetime
 
     class Config:

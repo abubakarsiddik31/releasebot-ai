@@ -6,24 +6,14 @@ from src.config.settings import settings
 def get_api_url(endpoint: str) -> str:
     return f"{settings.API_BASE_URL}{endpoint}"
 
-def fetch_users(status: str = None):
-    url = get_api_url("/users")
-    if status:
-        url += f"?status={status}"
-    response = requests.get(url)
+def fetch_users():
+    response = requests.get(get_api_url("/users"))
     return response.json() if response.status_code == 200 else []
 
 def create_user(email: str, name: str):
     response = requests.post(
         get_api_url("/users"),
         json={"email": email, "name": name}
-    )
-    return response.json() if response.status_code == 200 else None
-
-def update_user_status(email: str, status: str):
-    response = requests.put(
-        get_api_url(f"/users/{email}"),
-        json={"status": status}
     )
     return response.json() if response.status_code == 200 else None
 
@@ -51,7 +41,7 @@ st.set_page_config(
 
 st.title("User Management")
 
-tab1, tab2 = st.tabs(["Add Users", "Manage Users"])
+tab1, tab2 = st.tabs(["Add Users", "View Users"])
 
 with tab1:
     st.subheader("Add Single User")
@@ -99,35 +89,21 @@ with tab1:
 with tab2:
     st.subheader("User List")
     
-    status_filter = st.selectbox(
-        "Filter by Status",
-        options=["all", "active", "inactive", "bounced", "unsubscribed"],
-        index=0
-    )
-    
-    users = fetch_users(None if status_filter == "all" else status_filter)
+    users = fetch_users()
     
     if users:
         df = pd.DataFrame(users)
         df["created_at"] = pd.to_datetime(df["created_at"])
         
         st.dataframe(
-            df[["email", "name", "status", "created_at"]],
-            hide_index=True
+            df[["email", "name", "created_at"]],
+            hide_index=True,
+            column_config={
+                "email": "Email",
+                "name": "Name",
+                "created_at": "Created At"
+            },
+            use_container_width=True
         )
-        
-        st.markdown("---")
-        st.subheader("Bulk Actions")
-        
-        selected_status = st.selectbox(
-            "Change Status To",
-            options=["active", "inactive", "bounced", "unsubscribed"]
-        )
-        
-        if st.button("Apply to Selected"):
-            with st.spinner("Updating user statuses..."):
-                for user in users:
-                    update_user_status(user['email'], selected_status)
-                st.success("Status updated for all users")
     else:
-        st.info("No users found") 
+        st.info("No users found")

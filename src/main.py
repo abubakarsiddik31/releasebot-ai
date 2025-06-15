@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from src.models.database import ReleasesProcessed, Users, EmailContent
+from src.models.database import ReleasesProcessed, Users, EmailContent, user_status_enum
 from src.models.schemas import (
     UserCreate, UserResponse, ReleaseResponse, CampaignResponse,
     ReleaseTrigger
@@ -124,18 +124,17 @@ async def get_release_status(
 
 @app.get("/users", response_model=List[UserResponse])
 async def get_users(
-    status: Optional[str] = None,
     limit: int = 10,
     offset: int = 0,
     db: AsyncSession = Depends(get_db)
 ):
     try:
-        stmt = select(Users)
-        if status:
-            stmt = stmt.where(Users.status == status)
-            
+        logger.info("Fetching all users")
+        
         result = await db.execute(
-            stmt.offset(offset).limit(limit)
+            select(Users)
+            .offset(offset)
+            .limit(limit)
         )
         users = result.scalars().all()
         
@@ -143,7 +142,6 @@ async def get_users(
             {
                 'email': u.email,
                 'name': u.name,
-                'status': u.status,
                 'created_at': u.created_at
             }
             for u in users
@@ -160,8 +158,7 @@ async def create_user(
     try:
         db_user = Users(
             email=user.email,
-            name=user.name,
-            status='active'
+            name=user.name
         )
         db.add(db_user)
         await db.commit()
@@ -170,7 +167,6 @@ async def create_user(
         return {
             'email': db_user.email,
             'name': db_user.name,
-            'status': db_user.status,
             'created_at': db_user.created_at
         }
     except Exception as e:

@@ -6,24 +6,14 @@ from src.config.settings import settings
 def get_api_url(endpoint: str) -> str:
     return f"{settings.API_BASE_URL}{endpoint}"
 
-def fetch_users(status: str = None):
-    url = get_api_url("/users")
-    if status:
-        url += f"?status={status}"
-    response = requests.get(url)
+def fetch_users():
+    response = requests.get(get_api_url("/users"))
     return response.json() if response.status_code == 200 else []
 
 def create_user(email: str, name: str):
     response = requests.post(
         get_api_url("/users"),
         json={"email": email, "name": name}
-    )
-    return response.json() if response.status_code == 200 else None
-
-def update_user_status(email: str, status: str):
-    response = requests.put(
-        get_api_url(f"/users/{email}"),
-        json={"status": status}
     )
     return response.json() if response.status_code == 200 else None
 
@@ -50,13 +40,7 @@ tab1, tab2 = st.tabs(["User List", "Add Users"])
 with tab1:
     st.subheader("Registered Users")
     
-    status_filter = st.selectbox(
-        "Filter by status",
-        ["All", "Active", "Inactive"],
-        index=0
-    )
-    
-    users = fetch_users(status_filter.lower() if status_filter != "All" else None)
+    users = fetch_users()
     
     if users:
         users_df = pd.DataFrame(users)
@@ -65,22 +49,10 @@ with tab1:
             column_config={
                 "email": "Email",
                 "name": "Name",
-                "status": "Status",
                 "created_at": "Created At"
-            }
+            },
+            use_container_width=True
         )
-        
-        # User status management
-        st.subheader("Update User Status")
-        email = st.selectbox("Select User", users_df['email'].tolist())
-        new_status = st.selectbox("New Status", ["Active", "Inactive"])
-        
-        if st.button("Update Status"):
-            if update_user_status(email, new_status.lower()):
-                st.success(f"Updated status for {email}")
-                st.rerun()
-            else:
-                st.error("Failed to update user status")
     else:
         st.info("No users found")
 
