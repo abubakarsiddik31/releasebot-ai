@@ -1,8 +1,6 @@
-import os
 import sys
 from pathlib import Path
 
-# Add the project root to the Python path
 project_root = str(Path(__file__).resolve().parents[2])
 if project_root not in sys.path:
     sys.path.append(project_root)
@@ -13,9 +11,15 @@ import pandas as pd
 from src.config.settings import settings
 
 st.set_page_config(
-    page_title="ReleaseBot AI Dashboard",
+    page_title="ReleaseBot AI",
     page_icon="🤖",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded",
+    menu_items={
+        'Get Help': 'https://github.com/Bakar31/releasebot-ai',
+        'Report a bug': 'https://github.com/Bakar31/releasebot-ai/issues',
+        'About': 'ReleaseBot AI - Automated Release Management and Notifications'
+    }
 )
 
 def get_api_url(endpoint: str) -> str:
@@ -36,7 +40,8 @@ def trigger_release(release_tag: str):
     )
     return response.json() if response.status_code == 200 else None
 
-st.title("ReleaseBot AI Dashboard")
+st.title("🤖 ReleaseBot AI")
+st.subheader("Release Management Dashboard", divider=True)
 
 col1, col2, col3 = st.columns(3)
 
