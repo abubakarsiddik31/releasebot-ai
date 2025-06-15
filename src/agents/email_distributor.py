@@ -1,14 +1,14 @@
 from typing import Dict, Any, List, ClassVar, Optional
+from datetime import datetime
 from langchain.tools import BaseTool
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import Field
 
 from src.utils.logger import setup_logger, log_execution_time
 from src.services.brevo_service import BrevoService
-from src.models.database import get_db_session
-from src.models.database import Users, ReleasesProcessed, EmailContent
+from src.models.database import Users
 from src.utils.helpers import retry_with_backoff
+from src.services.database_service import get_db
 
 logger = setup_logger(__name__, "email_distributor.log")
 
@@ -53,8 +53,35 @@ class EmailDistributor(BaseTool):
 
     @retry_with_backoff()
     async def _get_active_users(self) -> List[Dict[str, Any]]:
-        users = await self.brevo_service.get_contacts()
-        return [user for user in users if user["status"] == "active"]
+        """
+        Fetch active users from the database.
+        
+        Returns:
+            List[Dict[str, Any]]: List of user dictionaries containing email and name
+        """
+        
+        async with get_db() as session:
+            try:
+                # Query active users
+                result = await session.execute(
+                    select(Users)
+                    .order_by(Users.email)
+                )
+                users = result.scalars().all()
+                
+                # Convert SQLAlchemy models to dictionaries
+                return [
+                    {
+                        'email': user.email,
+                        'name': user.name or user.email.split('@')[0],
+                        'created_at': user.created_at.isoformat() if user.created_at else None
+                    }
+                for user in users
+            ]
+            
+            except Exception as e:
+                logger.error(f"Error fetching users from database: {str(e)}")
+                raise
 
     @retry_with_backoff()
     async def _create_campaign(
@@ -63,16 +90,34 @@ class EmailDistributor(BaseTool):
         content: str,
         recipients: List[Dict[str, Any]]
     ) -> str:
+        # Generate a campaign name based on subject and timestamp
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        campaign_name = f"{subject[:50]}_{timestamp}"
+        
+        # Create the campaign using Brevo service
         campaign = await self.brevo_service.create_campaign(
+            name=campaign_name,
             subject=subject,
-            content=content,
-            recipients=recipients
+            html_content=content
         )
-        return campaign["id"]
+        return campaign["campaign_id"]
 
     @retry_with_backoff()
-    async def _update_campaign_status(self, campaign_id: str) -> None:
-        await self.brevo_service.update_campaign_status(campaign_id)
+    async def _update_campaign_status(self, campaign_id: str, status: str = "scheduled") -> Dict[str, Any]:
+        """
+        Update the status of a campaign in Brevo.
+        
+        Args:
+            campaign_id: The ID of the campaign to update
+            status: The new status ('scheduled' or 'sent')
+            
+        Returns:
+            Dict containing the updated campaign status
+        """
+        if not self.brevo_service:
+            raise ValueError("Brevo service is not initialized")
+            
+        return await self.brevo_service.update_campaign_status(campaign_id, status)
 
     async def _run(self, state: Dict[str, Any]) -> Dict[str, Any]:
         return await self._arun(state) 

@@ -78,6 +78,7 @@ class BrevoService:
 
         return results
 
+
     async def create_campaign(
         self,
         name: str,
@@ -123,6 +124,47 @@ class BrevoService:
 
         except ApiException as e:
             logger.error(f"Failed to get campaign stats: {str(e)}")
+            raise
+        
+    
+
+    async def update_campaign_status(self, campaign_id: str, status: str = "scheduled") -> Dict[str, Any]:
+        """
+        Update the status of a campaign.
+        
+        Args:
+            campaign_id: The ID of the campaign to update
+            status: The new status ('scheduled' or 'sent')
+            
+        Returns:
+            Dict containing the updated campaign status
+        """
+        try:
+            campaign_api = sib_api_v3_sdk.EmailCampaignsApi(sib_api_v3_sdk.ApiClient(self.configuration))
+            
+            if status == "scheduled":
+                # Schedule the campaign to be sent now
+                response = campaign_api.update_email_campaign_status(
+                    campaign_id,
+                    {'status': 'scheduled'}
+                )
+            elif status == "sent":
+                # Mark campaign as sent
+                response = campaign_api.update_email_campaign_status(
+                    campaign_id,
+                    {'status': 'sent'}
+                )
+            else:
+                raise ValueError(f"Invalid status: {status}. Must be 'scheduled' or 'sent'")
+                
+            return {
+                'campaign_id': campaign_id,
+                'status': status,
+                'updated_at': datetime.datetime.utcnow().isoformat()
+            }
+            
+        except ApiException as e:
+            logger.error(f"Failed to update campaign status: {str(e)}")
             raise
 
     async def validate_email_addresses(self, emails: List[str]) -> Dict[str, List[str]]:

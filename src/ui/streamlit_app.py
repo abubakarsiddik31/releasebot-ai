@@ -70,6 +70,13 @@ def initialize_session_state():
         st.session_state.workflow = get_workflow()
     if 'agent_outputs' not in st.session_state:
         st.session_state.agent_outputs = {}
+    if 'agent_states' not in st.session_state:
+        st.session_state.agent_states = {
+            'detect_release': {},
+            'analyze_changes': {},
+            'generate_content': {},
+            'distribute_emails': {}
+        }
 
 def add_log(message: str, level: str = "info"):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -90,11 +97,31 @@ def get_step_progress(current_step: str) -> float:
         return 0
     return (steps.index(current_step) + 1) / len(steps) * 100
 
+def get_agent_state_summary(state: dict) -> dict:
+    """Extract a summary of the agent state for display"""
+    if not state:
+        return {}
+    
+    summary = {}
+    for key, value in state.items():
+        if key == 'errors' and value:
+            summary[key] = value
+        elif key in ['release_tag', 'manual_trigger', 'send_status', 'retry_count']:
+            summary[key] = value
+        elif key in ['release_data', 'analyzed_changes', 'changelog', 'email_content']:
+            if value:  # Only include non-empty values
+                if isinstance(value, dict):
+                    summary[f"{key}_summary"] = {k: type(v).__name__ for k, v in value.items()}
+                else:
+                    summary[f"{key}_summary"] = f"{type(value).__name__} ({len(str(value))} chars)"
+    return summary
+
 async def process_release(release_tag: str):
     try:
         st.session_state.processing = True
         st.session_state.current_step = "Initializing"
         st.session_state.agent_outputs = {}
+        st.session_state.agent_states = {agent: {} for agent in st.session_state.agent_states}
         add_log(f"Starting release processing for {release_tag}")
         
         initial_state = get_initial_state(release_tag, manual_trigger=True)
@@ -106,6 +133,10 @@ async def process_release(release_tag: str):
             st.session_state.agent_state = state
             current_node = state.get('current_node', 'unknown')
             st.session_state.current_step = current_node
+            
+            # Update the state for the current agent
+            if current_node in st.session_state.agent_states:
+                st.session_state.agent_states[current_node] = get_agent_state_summary(state)
             
             if state.get('errors'):
                 for error in state['errors']:
@@ -142,6 +173,37 @@ def trigger_release(release_tag: str):
         return True
     return False
 
+def clear_agent_states():
+    """Clear all agent states and reset the workflow"""
+    st.session_state.agent_states = {
+        'detect_release': {},
+        'analyze_changes': {},
+        'generate_content': {},
+        'distribute_emails': {}
+    }
+    st.session_state.agent_outputs = {}
+    st.session_state.current_step = None
+    st.session_state.agent_state = None
+    st.success("Agent states cleared successfully!")
+
+def display_agent_state(agent_name: str, state: dict):
+    """Display the state of a single agent in an expandable section"""
+    with st.expander(f"🔍 {agent_name.replace('_', ' ').title()} State"):
+        if not state:
+            st.info("No state information available")
+            return
+            
+        cols = st.columns(2)
+        for i, (key, value) in enumerate(state.items()):
+            with cols[i % 2]:
+                if key == 'errors' and value:
+                    with st.container(border=True):
+                        st.error("Errors")
+                        for error in value:
+                            st.error(f"❌ {error}")
+                else:
+                    st.json({key: value}, expanded=False)
+
 def display_agent_output(step: str, output: dict):
     st.subheader(f"📊 {step.replace('_', ' ').title()} Output")
     
@@ -172,6 +234,15 @@ initialize_session_state()
 st.title("🤖 ReleaseBot AI")
 st.subheader("Release Management Dashboard", divider=True)
 
+# Add a button to clear agent states
+if st.sidebar.button("🔄 Clear All Agent States", use_container_width=True):
+    clear_agent_states()
+
+# Display current agent states
+st.sidebar.subheader("Agent States")
+# for agent_name, state in st.session_state.get('agent_states', {}).items():
+#     display_agent_state(agent_name, state)
+
 try:
     col1, col2, col3 = st.columns(3)
 
@@ -194,17 +265,6 @@ try:
             )
         else:
             st.metric("Last Release", "No releases found", None)
-
-    with col3:
-        if releases:
-            success_rate = sum(1 for r in releases if r["status"] == "completed") / len(releases) * 100
-            st.metric(
-                "Success Rate",
-                f"{success_rate:.1f}%",
-                f"Based on {len(releases)} releases"
-            )
-        else:
-            st.metric("Success Rate", "N/A", None)
 
     st.markdown("---")
 
