@@ -1,19 +1,25 @@
 DO
 $$
 BEGIN
-   CREATE ROLE releasebot WITH LOGIN PASSWORD 'releasebot';
+    CREATE ROLE releasebot WITH LOGIN PASSWORD 'releasebot';
 EXCEPTION
-   WHEN duplicate_object THEN null;
+    WHEN duplicate_object THEN null;
 END
 $$;
 
--- Create the types we need
-DO $$ BEGIN
-    CREATE TYPE release_status AS ENUM ('processing', 'completed', 'failed');
-    CREATE TYPE user_status AS ENUM ('active', 'inactive', 'bounced', 'unsubscribed');
+-- Drop existing enum types if they exist
+DO $$ 
+BEGIN
+    DROP TYPE IF EXISTS release_status CASCADE;
+    DROP TYPE IF EXISTS user_status CASCADE;
 EXCEPTION
-    WHEN duplicate_object THEN null;
+    WHEN others THEN
+        RAISE NOTICE 'Could not drop enum types: %', SQLERRM;
 END $$;
+
+-- Create the types we need
+CREATE TYPE release_status AS ENUM ('processing', 'completed', 'failed');
+CREATE TYPE user_status AS ENUM ('active', 'inactive', 'bounced', 'unsubscribed');
 
 CREATE TABLE IF NOT EXISTS releases_processed (
     id SERIAL PRIMARY KEY,

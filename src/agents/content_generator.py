@@ -36,8 +36,6 @@ class ContentGenerator(BaseTool):
         except Exception as e:
             logger.error(f"Error in content generation: {str(e)}")
             return {"errors": [str(e)]}
-        finally:
-            await self.ai_client.close()
 
     @retry_with_backoff()
     async def _generate_subject(self, summary: str) -> str:

@@ -43,8 +43,6 @@ class ChangeAnalyzer(BaseTool):
         except Exception as e:
             logger.error(f"Error in change analysis: {str(e)}")
             return {"errors": [str(e)]}
-        finally:
-            await self.ai_client.close()
 
     @retry_with_backoff()
     async def _analyze_changes(self, changelog: str) -> Dict[str, List[str]]:

@@ -44,8 +44,6 @@ class QualityChecker(BaseTool):
         except Exception as e:
             logger.error(f"Error in quality check: {str(e)}")
             return {"errors": [str(e)]}
-        finally:
-            await self.ai_client.close()
 
     @retry_with_backoff()
     async def _evaluate_content(self, content: str, subject: str) -> Tuple[float, List[str]]:

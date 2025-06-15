@@ -1,9 +1,8 @@
 from typing import Dict, Any, TypedDict, List, Callable, Awaitable, Optional, Literal, Union, Sequence, Annotated
+import operator
 from langgraph.graph import StateGraph, END
-from langgraph.prebuilt import ToolNode
 from langchain.tools import BaseTool
 from typing_extensions import TypedDict
-import operator
 
 from src.agents.release_detector import ReleaseDetector
 from src.agents.change_analyzer import ChangeAnalyzer
@@ -94,11 +93,14 @@ def get_workflow() -> StateGraph:
 
     def create_tool_node(tool: BaseTool) -> Callable[[Dict[str, Any]], Awaitable[Dict[str, Any]]]:
         async def tool_node(state: Dict[str, Any]) -> Dict[str, Any]:
+            tool_name = tool.name if hasattr(tool, 'name') else tool.__class__.__name__
+            logger.info(f"🚀 Starting {tool_name} with state: {_get_sanitized_state(state)}")
+            
             try:
                 result = await tool._arun(state.copy())
                 
                 if not isinstance(result, dict):
-                    raise ValueError(f"Tool {tool.name} did not return a dictionary")
+                    raise ValueError(f"Tool {tool_name} did not return a dictionary")
                 
                 updates = {}
                 
@@ -110,12 +112,37 @@ def get_workflow() -> StateGraph:
                     if key in state and state[key] != value:
                         updates[key] = value
                 
+                logger.info(f"✅ {tool_name} completed. Updates: {_get_sanitized_updates(updates)}")
+                logger.debug(f"Full state after {tool_name}: {_get_sanitized_state({**state, **updates})}")
                 return updates
                 
             except Exception as e:
-                error_msg = f"Error in {tool.name}: {e}"
+                error_msg = f"❌ Error in {tool_name}: {str(e)}"
                 logger.error(error_msg, exc_info=True)
                 return {'errors': [error_msg]}
+        
+        def _get_sanitized_state(state: Dict[str, Any]) -> Dict[str, Any]:
+            """Create a sanitized version of the state for logging."""
+            if not state:
+                return {}
+                
+            sanitized = state.copy()
+            # Remove large fields from logging
+            for field in ['email_content', 'changelog', 'release_data', 'analyzed_changes']:
+                if field in sanitized and sanitized[field]:
+                    sanitized[field] = f"<{field} - {len(str(sanitized[field]))} chars>"
+            return sanitized
+            
+        def _get_sanitized_updates(updates: Dict[str, Any]) -> Dict[str, Any]:
+            """Create a sanitized version of updates for logging."""
+            if not updates:
+                return {}
+                
+            sanitized = updates.copy()
+            for field in ['email_content', 'changelog', 'release_data', 'analyzed_changes']:
+                if field in sanitized and sanitized[field]:
+                    sanitized[field] = f"<{field} updated - {len(str(sanitized[field]))} chars>"
+            return sanitized
                 
         return tool_node
 
