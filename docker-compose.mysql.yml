@@ -10,9 +10,8 @@ services:
     environment:
       - ENVIRONMENT=development
       - LOG_LEVEL=INFO
-      - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://releasebot:password@db:5432/releasebot}
+      - DATABASE_URL=mysql+aiomysql://releasebot:password@db:3306/releasebot
       - GITHUB_TOKEN=${GITHUB_TOKEN}
-      - GITHUB_REPO=${GITHUB_REPO}
       - BREVO_API_KEY=${BREVO_API_KEY}
       - BREVO_SENDER_EMAIL=${BREVO_SENDER_EMAIL}
       - BREVO_SENDER_NAME=${BREVO_SENDER_NAME}
@@ -37,34 +36,28 @@ services:
       start_period: 40s
 
   db:
-    image: ${DB_IMAGE:-postgres:15-alpine}
+    image: mysql:8.0
     container_name: releasebot-db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-releasebot}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB:-releasebot}
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_password}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-releasebot}
-      MYSQL_USER: ${MYSQL_USER:-releasebot}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-password}
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: releasebot
+      MYSQL_USER: releasebot
+      MYSQL_PASSWORD: password
     volumes:
-      - postgres_data:/var/lib/postgresql/data
       - mysql_data:/var/lib/mysql
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
-      - "${DB_PORT:-5432}:5432"
+      - "3306:3306"
     networks:
       - releasebot-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-releasebot} -d ${POSTGRES_DB:-releasebot}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot_password"]
       interval: 5s
       timeout: 5s
       retries: 5
 
 volumes:
-  postgres_data:
-    driver: local
   mysql_data:
     driver: local
 

@@ -12,17 +12,11 @@ ReleaseBot AI is an intelligent release management system that automates the pro
 - ⚙️ Configurable workflow settings
 - 🔒 Secure API integrations
 - 📱 Responsive web interface
+- 🐳 Full Docker support with single command setup
 
-## Prerequisites
+## Quick Start with Docker (Recommended)
 
-- Python 3.12 or higher
-- Docker and Docker Compose
-- PostgreSQL 15 or higher
-- GitHub account with repository access
-- Brevo account for email services
-- OpenRouter API key for AI services
-
-## Quick Start
+The easiest way to get started is using Docker with our unified setup:
 
 1. Clone the repository:
 
@@ -31,49 +25,106 @@ git clone https://github.com/bakar31/releasebot-ai.git
 cd releasebot-ai
 ```
 
-2. Create a `.env` file in the root directory:
+2. Configure your environment variables:
 
 ```bash
+# Copy the example environment file
 cp .env.example .env
+
+# Edit .env with your API keys and preferences
+nano .env  # or use your preferred editor
 ```
 
-3. Update the `.env` file with your credentials:
-
+Required environment variables:
 ```env
 # GitHub Configuration
-GITHUB_TOKEN=your_github_token
+GITHUB_TOKEN=your_github_token_here
 GITHUB_REPO_OWNER=your_username
 GITHUB_REPO_NAME=your_repo
 
-# Brevo Configuration
-BREVO_API_KEY=your_brevo_api_key
-BREVO_SENDER_EMAIL=your_verified_email
+# Brevo Configuration (for email)
+BREVO_API_KEY=your_brevo_api_key_here
+BREVO_SENDER_EMAIL=your_verified_email@example.com
 BREVO_SENDER_NAME=Your Name
 
-# OpenRouter Configuration
-OPENROUTER_API_KEY=your_openrouter_api_key
-
-# Database Configuration
-DATABASE_URL=postgresql+asyncpg://releasebot:your_password@db:5432/releasebot
-POSTGRES_USER=releasebot
-POSTGRES_PASSWORD=your_password
-POSTGRES_DB=releasebot
+# OpenRouter Configuration (for AI)
+OPENROUTER_API_KEY=your_openrouter_api_key_here
 ```
 
-4. Start the application using Docker Compose:
+3. Start the application with one command (using PostgreSQL by default):
 
 ```bash
-docker-compose up -d db
-# Wait for the database to be ready (about 10-15 seconds)
+# Option 1: Using Make (easiest)
+make up
+
+# Option 2: Using Docker Compose directly
 docker-compose up -d
 ```
 
-5. Access the application:
-
+4. Access the application:
 - Dashboard: http://localhost:8501
 - API Documentation: http://localhost:8000/docs
 
+### Database Options
+
+The application supports both PostgreSQL and MySQL databases:
+
+```bash
+# Use PostgreSQL (default)
+make up-postgres
+# or
+make up
+
+# Use MySQL
+make up-mysql
+```
+
+## Docker Commands
+
+Use the following commands to manage the application:
+
+```bash
+# Start the application (PostgreSQL by default)
+make up
+
+# Start with specific database
+make up-postgres  # PostgreSQL
+make up-mysql     # MySQL
+
+# Stop the application
+make down
+
+# View logs
+make logs
+
+# Clean up everything (remove all containers, volumes, and images)
+make clean
+
+# Rebuild the image
+make build
+```
+
+## Manual Docker Setup
+
+If you prefer not to use the Makefile:
+
+1. Set database configuration:
+```bash
+# For PostgreSQL
+source docker-compose.env postgres
+
+# For MySQL
+source docker-compose.env mysql
+```
+
+2. Start the services:
+```bash
+docker-compose up -d
+```
+
 ## Development Setup
+
+For local development without Docker:
 
 1. Create a virtual environment:
 
@@ -88,17 +139,20 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-3. Run the application:
+3. Start the database:
 
 ```bash
-# Start the database
 docker-compose up -d db
+```
 
+4. Run the application:
+
+```bash
 # Run the FastAPI backend
 uvicorn src.main:app --reload --port 8000
 
-# Run the Streamlit frontend
-streamlit run src\ui\streamlit_app.py
+# Run the Streamlit frontend (in another terminal)
+streamlit run src/ui/streamlit_app.py
 ```
 
 ## Project Structure
@@ -107,17 +161,17 @@ streamlit run src\ui\streamlit_app.py
 releasebot-ai/
 ├── src/
 │   ├── agents/           # AI agents for release processing
-│   ├── api/             # FastAPI backend
 │   ├── config/          # Configuration settings
-│   ├── db/              # Database models and migrations
+│   ├── models/          # Database models and schemas
 │   ├── services/        # External service integrations
 │   ├── ui/              # Streamlit frontend
 │   └── utils/           # Utility functions
-├── tests/               # Test suite
 ├── .env.example         # Environment variables template
-├── docker-compose.yml   # Development Docker configuration
+├── docker-compose.yml   # Unified Docker configuration
 ├── docker-compose.prod.yml  # Production Docker configuration
+├── docker-compose.env   # Database configuration helper
 ├── Dockerfile          # Docker build instructions
+├── Makefile            # Convenient commands
 └── requirements.txt    # Python dependencies
 ```
 
@@ -148,10 +202,12 @@ releasebot-ai/
 
 The API documentation is available at http://localhost:8000/docs when running the application. Key endpoints include:
 
-- `POST /api/v1/releases/process`: Process new releases
-- `GET /api/v1/releases`: List all releases
-- `POST /api/v1/emails/send`: Send release emails
-- `GET /api/v1/users`: List all users
+- `POST /trigger-release`: Process new releases
+- `GET /releases`: List all releases
+- `GET /users`: List all users
+- `POST /users`: Create a new user
+- `GET /campaigns`: List email campaigns
+- `GET /health`: Health check endpoint
 
 ## Production Deployment
 
@@ -167,6 +223,38 @@ docker-compose -f docker-compose.prod.yml up -d
 3. Set up proper backup procedures for the database
 4. Configure monitoring and alerting
 
+## Environment Variables
+
+The application uses the following environment variables:
+
+### Required
+- `GITHUB_TOKEN`: GitHub personal access token
+- `BREVO_API_KEY`: Brevo email service API key
+- `BREVO_SENDER_EMAIL`: Verified sender email
+- `OPENROUTER_API_KEY`: OpenRouter API key for AI services
+
+### Optional
+- `DATABASE_URL`: Database connection URL (auto-configured)
+- `API_BASE_URL`: Base URL for the API (default: http://localhost:8000)
+- `LOG_LEVEL`: Logging level (default: INFO)
+- `ENVIRONMENT`: Environment name (default: development)
+
+## Troubleshooting
+
+### Database Connection Issues
+- Ensure the database container is healthy: `docker-compose ps`
+- Check database logs: `docker-compose logs db`
+- Verify environment variables in `.env`
+
+### Application Won't Start
+- Check all required environment variables are set
+- Verify Docker and Docker Compose are installed
+- Check port conflicts (8000 for API, 8501 for UI)
+
+### Performance Issues
+- For high-volume use, consider using MySQL instead of PostgreSQL
+- Monitor resource usage with `docker stats`
+- Adjust memory limits in docker-compose.prod.yml
 
 ## Acknowledgments
 
