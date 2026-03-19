@@ -3,8 +3,8 @@ version: "3.8"
 services:
   app:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: infra/Dockerfile
     image: releasebot-ai:latest
     restart: unless-stopped
     environment:
@@ -12,14 +12,15 @@ services:
       - LOG_LEVEL=INFO
       - DATABASE_URL=mysql+aiomysql://releasebot:password@db:3306/releasebot
       - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_REPO=${GITHUB_REPO}
       - BREVO_API_KEY=${BREVO_API_KEY}
       - BREVO_SENDER_EMAIL=${BREVO_SENDER_EMAIL}
       - BREVO_SENDER_NAME=${BREVO_SENDER_NAME}
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
       - API_BASE_URL=${API_BASE_URL:-http://localhost:8000}
     volumes:
-      - ./logs:/app/logs
-      - ./data:/app/data
+      - ../logs:/app/logs
+      - ../data:/app/data
     ports:
       - "8000:8000"  # FastAPI
       - "8501:8501"  # Streamlit

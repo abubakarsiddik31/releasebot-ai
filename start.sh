@@ -35,7 +35,7 @@ echo "Detected database type: $DB_TYPE (port: $DB_PORT)"
 
 # Wait for the database to be ready
 echo "Waiting for database to be ready..."
-wait-for-db.sh db $DB_PORT
+./infra/wait-for-db.sh db $DB_PORT
 
 # Start the FastAPI server in the background
 echo "Starting FastAPI server on port 8000..."

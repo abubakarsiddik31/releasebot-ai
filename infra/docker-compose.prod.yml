@@ -3,8 +3,8 @@ version: "3.8"
 services:
   app:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: infra/Dockerfile
     image: releasebot-ai:prod
     restart: unless-stopped
     environment:
@@ -15,8 +15,8 @@ services:
       - BREVO_API_KEY=${BREVO_API_KEY}
       - API_BASE_URL=${API_BASE_URL}
     volumes:
-      - ./logs:/app/logs
-      - ./data:/app/data
+      - ../logs:/app/logs
+      - ../data:/app/data
     ports:
       - "8000:8000"
       - "8501:8501"
@@ -82,9 +82,9 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./nginx/conf.d:/etc/nginx/conf.d
-      - ./nginx/ssl:/etc/nginx/ssl
-      - ./nginx/logs:/var/log/nginx
+      - ../nginx/conf.d:/etc/nginx/conf.d
+      - ../nginx/ssl:/etc/nginx/ssl
+      - ../nginx/logs:/var/log/nginx
     depends_on:
       - app
     networks:

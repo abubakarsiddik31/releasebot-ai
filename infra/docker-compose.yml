@@ -3,23 +3,24 @@ version: "3.8"
 services:
   app:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: infra/Dockerfile
     image: releasebot-ai:latest
     restart: unless-stopped
     environment:
       - ENVIRONMENT=development
       - LOG_LEVEL=INFO
-      - DATABASE_URL=postgresql+asyncpg://releasebot:password@db:5432/releasebot
+      - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://releasebot:password@db:5432/releasebot}
       - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_REPO=${GITHUB_REPO}
       - BREVO_API_KEY=${BREVO_API_KEY}
       - BREVO_SENDER_EMAIL=${BREVO_SENDER_EMAIL}
       - BREVO_SENDER_NAME=${BREVO_SENDER_NAME}
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
       - API_BASE_URL=${API_BASE_URL:-http://localhost:8000}
     volumes:
-      - ./logs:/app/logs
-      - ./data:/app/data
+      - ../logs:/app/logs
+      - ../data:/app/data
     ports:
       - "8000:8000"  # FastAPI
       - "8501:8501"  # Streamlit
@@ -36,28 +37,35 @@ services:
       start_period: 40s
 
   db:
-    image: postgres:15-alpine
+    image: ${DB_IMAGE:-postgres:15-alpine}
     container_name: releasebot-db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: releasebot
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: releasebot
+      POSTGRES_USER: ${POSTGRES_USER:-releasebot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-releasebot}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_password}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-releasebot}
+      MYSQL_USER: ${MYSQL_USER:-releasebot}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-password}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - mysql_data:/var/lib/mysql
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5432}:5432"
     networks:
       - releasebot-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U releasebot -d releasebot"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-releasebot} -d ${POSTGRES_DB:-releasebot}"]
       interval: 5s
       timeout: 5s
       retries: 5
 
 volumes:
   postgres_data:
+    driver: local
+  mysql_data:
     driver: local
 
 networks:

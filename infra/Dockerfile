@@ -38,7 +38,7 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application code
 COPY --chown=appuser:appuser . .
-COPY --chown=appuser:appuser wait-for-db.sh /usr/local/bin/wait-for-db.sh
+COPY --chown=appuser:appuser infra/wait-for-db.sh /usr/local/bin/wait-for-db.sh
 
 RUN chmod +x /usr/local/bin/wait-for-db.sh
 
