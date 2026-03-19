@@ -15,7 +15,9 @@
 
 ---
 
-## Tech Stack
+ReleaseBot AI is a Python application that detects GitHub releases, generates release communication content, and distributes announcements.
+
+## Stack
 
 - Python 3.12
 - FastAPI
@@ -24,7 +26,7 @@
 - SQLAlchemy (PostgreSQL or MySQL)
 - Docker / Docker Compose
 
-## Project Structure
+## Project Layout
 
 ```text
 .
@@ -53,19 +55,19 @@
 ## Prerequisites
 
 - Docker + Docker Compose
-- GitHub token
-- OpenRouter API key (for AI generation)
-- Brevo API key (for email distribution)
+- GitHub Personal Access Token
+- OpenRouter API key
+- Brevo API key
 
-## Setup
+## Configuration
 
-1. Copy and configure environment variables:
+1. Create environment file:
 
 ```bash
 cp .env.example .env
 ```
 
-2. Fill at least these values in `.env`:
+2. Set required values in `.env`:
 
 - `GITHUB_TOKEN`
 - `GITHUB_REPO` (format: `owner/repo`)
@@ -74,39 +76,47 @@ cp .env.example .env
 - `BREVO_SENDER_EMAIL`
 - `BREVO_SENDER_NAME`
 
-## Run With Docker
-
-### PostgreSQL (default)
+## Running With Makefile
 
 ```bash
+make help
 make up
-```
-
-### MySQL
-
-```bash
 make up-mysql
-```
-
-### Stop
-
-```bash
 make down
+make logs
+make logs-mysql
+make build
+make clean
 ```
 
-### Logs
+## Running With Docker Compose Directly
+
+PostgreSQL:
 
 ```bash
-make logs
+docker compose -f infra/docker-compose.postgres.yml up -d
 ```
 
-Application URLs:
+MySQL:
+
+```bash
+docker compose -f infra/docker-compose.mysql.yml up -d
+```
+
+Stop:
+
+```bash
+docker compose -f infra/docker-compose.postgres.yml down
+docker compose -f infra/docker-compose.mysql.yml down
+```
+
+## Application URLs
 
 - API: http://localhost:8000
 - API Docs: http://localhost:8000/docs
-- Streamlit UI: http://localhost:8501
+- Streamlit: http://localhost:8501
 
-## Local Development (without Docker)
+## Local Development (Without Docker)
 
 ```bash
 python -m venv .venv
@@ -142,29 +152,17 @@ streamlit run src/ui/streamlit_app.py
 | `BREVO_API_KEY` | Yes | Brevo API key |
 | `BREVO_SENDER_EMAIL` | Yes | Sender email |
 | `BREVO_SENDER_NAME` | Yes | Sender display name |
-| `DATABASE_URL` | No | DB connection string |
+| `DATABASE_URL` | No | Database connection string |
 | `LOG_LEVEL` | No | Logging level |
 | `ENVIRONMENT` | No | Runtime environment |
-
-## Development Commands
-
-```bash
-make help
-make up
-make up-mysql
-make down
-make logs
-make build
-make clean
-```
 
 ## Contributing
 
 1. Create a branch from `main`
-2. Make focused changes
+2. Keep changes focused
 3. Run tests/lint locally
 4. Open a pull request with a clear summary
 
 ## License
 
-MIT License. See `LICENSE`.
+MIT. See `LICENSE`.

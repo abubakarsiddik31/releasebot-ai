@@ -1,4 +1,4 @@
-.PHONY: help up up-postgres up-mysql down logs clean build
+.PHONY: help up up-postgres up-mysql down logs logs-postgres logs-mysql restart build clean
 
 COMPOSE_POSTGRES = infra/docker-compose.postgres.yml
 COMPOSE_MYSQL = infra/docker-compose.mysql.yml
@@ -11,7 +11,10 @@ help:
 	@echo "  make up-postgres  Start with PostgreSQL"
 	@echo "  make up-mysql     Start with MySQL"
 	@echo "  make down         Stop containers"
-	@echo "  make logs         Tail PostgreSQL stack logs"
+	@echo "  make logs         Tail PostgreSQL logs (default)"
+	@echo "  make logs-postgres Tail PostgreSQL logs"
+	@echo "  make logs-mysql   Tail MySQL logs"
+	@echo "  make restart      Restart PostgreSQL stack"
 	@echo "  make build        Build app image"
 	@echo "  make clean        Remove containers, volumes, and dangling resources"
 
@@ -36,6 +39,14 @@ down:
 
 logs:
 	docker compose -f $(COMPOSE_POSTGRES) logs -f
+
+logs-postgres:
+	docker compose -f $(COMPOSE_POSTGRES) logs -f
+
+logs-mysql:
+	docker compose -f $(COMPOSE_MYSQL) logs -f
+
+restart: down up
 
 build:
 	@echo "Building ReleaseBot AI image..."
